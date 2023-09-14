@@ -1,0 +1,33 @@
+[package]
+name = "locks"
+version = "0.1.0"
+authors = ["jazmin-uala <jazmin.ferreiro@uala.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[[bin]]
+name = "example1"
+path = "src/example1/main.rs"
+
+[[bin]]
+name = "example2"
+path = "src/example2/main.rs"
+
+[[bin]]
+name = "example3"
+path = "src/example3/main.rs"
+
+[[bin]]
+name = "example4"
+path = "src/example4/main.rs"
+
+[[bin]]
+name = "example5"
+path = "src/example5/main.rs"
+
+
+[dependencies]
+
+
