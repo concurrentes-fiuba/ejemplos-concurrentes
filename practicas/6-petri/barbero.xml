@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="ISO-8859-1"?><pnml>
+<net id="Net-One" type="P/T net">
+<token id="Default" enabled="true" red="0" green="0" blue="0"/>
+<place id="cliente esperando">
+<graphics>
+<position x="293.0769230769231" y="180.0"/>
+</graphics>
+<name>
+<value>cliente esperando</value>
+<graphics>
+<offset x="0.0" y="0.0"/>
+</graphics>
+</name>
+<initialMarking>
+<value>Default,0</value>
+<graphics>
+<offset x="0.0" y="0.0"/>
+</graphics>
+</initialMarking>
+<capacity>
+<value>0</value>
+</capacity>
+</place>
+<place id="clientes">
+<graphics>
+<position x="296.53846153846155" y="288.46153846153845"/>
+</graphics>
+<name>
+<value>clientes</value>
+<graphics>
+<offset x="0.0" y="0.0"/>
+</graphics>
+</name>
+<initialMarking>
+<value>Default,5</value>
+<graphics>
+<offset x="0.0" y="0.0"/>
+</graphics>
+</initialMarking>
+<capacity>
+<value>0</value>
+</capacity>
+</place>
+<place id="cortando">
+<graphics>
+<position x="413.07692307692315" y="106.1538461538461"/>
+</graphics>
+<name>
+<value>cortando</value>
+<graphics>
+<offset x="0.0" y="0.0"/>
+</graphics>
+</name>
+<initialMarking>
+<value>Default,0</value>
+<graphics>
+<offset x="0.0" y="0.0"/>
+</graphics>
+</initialMarking>
+<capacity>
+<value>0</value>
+</capacity>
+</place>
+<place id="duermiendo">
+<graphics>
+<position x="193.84615384615384" y="105.0"/>
+</graphics>
+<name>
+<value>duermiendo</value>
+<graphics>
+<offset x="0.0" y="0.0"/>
+</graphics>
+</name>
+<initialMarking>
+<value>Default,1</value>
+<graphics>
+<offset x="0.0" y="0.0"/>
+</graphics>
+</initialMarking>
+<capacity>
+<value>0</value>
+</capacity>
+</place>
+<transition id="entra cliente">
+<graphics>
+<position x="293.0769230769231" y="216.9230769230769"/>
+</graphics>
+<name>
+<value>entra cliente</value>
+<graphics>
+<offset x="-5.0" y="35.0"/>
+</graphics>
+</name>
+<orientation>
+<value>90</value>
+</orientation>
+<rate>
+<value>1.0</value>
+</rate>
+<timed>
+<value>false</value>
+</timed>
+<infiniteServer>
+<value>false</value>
+</infiniteServer>
+<priority>
+<value>1</value>
+</priority>
+</transition>
+<transition id="T0">
+<graphics>
+<position x="323.07692307692304" y="105.0"/>
+</graphics>
+<name>
+<value>T0</value>
+<graphics>
+<offset x="-5.0" y="35.0"/>
+</graphics>
+</name>
+<orientation>
+<value>0</value>
+</orientation>
+<rate>
+<value>1.0</value>
+</rate>
+<timed>
+<value>false</value>
+</timed>
+<infiniteServer>
+<value>false</value>
+</infiniteServer>
+<priority>
+<value>1</value>
+</priority>
+</transition>
+<transition id="T2">
+<graphics>
+<position x="491.5384615384616" y="101.53846153846153"/>
+</graphics>
+<name>
+<value>T2</value>
+<graphics>
+<offset x="-5.0" y="35.0"/>
+</graphics>
+</name>
+<orientation>
+<value>0</value>
+</orientation>
+<rate>
+<value>1.0</value>
+</rate>
+<timed>
+<value>false</value>
+</timed>
+<infiniteServer>
+<value>false</value>
+</infiniteServer>
+<priority>
+<value>1</value>
+</priority>
+</transition>
+<arc id="cliente esperando to T0" source="cliente esperando" target="T0">
+<graphics/>
+<inscription>
+<value>Default,1</value>
+<graphics/>
+</inscription>
+<tagged>
+<value>false</value>
+</tagged>
+<arcpath id="000" x="311" y="178" curvePoint="false"/>
+<arcpath id="001" x="335" y="132" curvePoint="false"/>
+<type value="normal"/>
+</arc>
+<arc id="clientes to entra cliente" source="clientes" target="entra cliente">
+<graphics/>
+<inscription>
+<value>Default,1</value>
+<graphics/>
+</inscription>
+<tagged>
+<value>false</value>
+</tagged>
+<arcpath id="000" x="307" y="285" curvePoint="false"/>
+<arcpath id="001" x="304" y="233" curvePoint="false"/>
+<type value="normal"/>
+</arc>
+<arc id="cortando to T2" source="cortando" target="T2">
+<graphics/>
+<inscription>
+<value>Default,1</value>
+<graphics/>
+</inscription>
+<tagged>
+<value>false</value>
+</tagged>
+<arcpath id="000" x="440" y="116" curvePoint="false"/>
+<arcpath id="001" x="498" y="113" curvePoint="false"/>
+<type value="normal"/>
+</arc>
+<arc id="duermiendo to T0" source="duermiendo" target="T0">
+<graphics/>
+<inscription>
+<value>Default,1</value>
+<graphics/>
+</inscription>
+<tagged>
+<value>false</value>
+</tagged>
+<arcpath id="000" x="220" y="116" curvePoint="false"/>
+<arcpath id="001" x="330" y="117" curvePoint="false"/>
+<type value="normal"/>
+</arc>
+<arc id="entra cliente to cliente esperando" source="entra cliente" target="cliente esperando">
+<graphics/>
+<inscription>
+<value>Default,1</value>
+<graphics/>
+</inscription>
+<tagged>
+<value>false</value>
+</tagged>
+<arcpath id="000" x="304" y="223" curvePoint="false"/>
+<arcpath id="001" x="304" y="206" curvePoint="false"/>
+<type value="normal"/>
+</arc>
+<arc id="T0 to cortando" source="T0" target="cortando">
+<graphics/>
+<inscription>
+<value>Default,1</value>
+<graphics/>
+</inscription>
+<tagged>
+<value>false</value>
+</tagged>
+<arcpath id="000" x="340" y="116" curvePoint="false"/>
+<arcpath id="001" x="410" y="117" curvePoint="false"/>
+<type value="normal"/>
+</arc>
+<arc id="T2 to clientes" source="T2" target="clientes">
+<graphics/>
+<inscription>
+<value>Default,1</value>
+<graphics/>
+</inscription>
+<tagged>
+<value>false</value>
+</tagged>
+<arcpath id="000" x="503" y="128" curvePoint="false"/>
+<arcpath id="001" x="505" y="309" curvePoint="false"/>
+<arcpath id="002" x="323" y="300" curvePoint="false"/>
+<type value="normal"/>
+</arc>
+<arc id="T2 to duermiendo" source="T2" target="duermiendo">
+<graphics/>
+<inscription>
+<value>Default,1</value>
+<graphics/>
+</inscription>
+<tagged>
+<value>false</value>
+</tagged>
+<arcpath id="000" x="504" y="98" curvePoint="false"/>
+<arcpath id="001" x="505" y="43" curvePoint="false"/>
+<arcpath id="002" x="205" y="43" curvePoint="false"/>
+<arcpath id="003" x="205" y="102" curvePoint="false"/>
+<type value="normal"/>
+</arc>
+</net>
+</pnml>
