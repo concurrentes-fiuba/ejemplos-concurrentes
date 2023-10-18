@@ -1,0 +1,14 @@
+[package]
+name = "actores"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+rand = "0.7"
+actix = "0.11.1"
+actix-rt = "2.0" # <-- Runtime for actix
+console-subscriber = { git = "https://github.com/tokio-rs/console.git" }
+ntest = "*"
+futures-channel = "*"
+tokio = "*"
+
