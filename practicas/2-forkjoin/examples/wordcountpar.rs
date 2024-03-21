@@ -11,7 +11,8 @@ fn main() {
 
     let start = Instant::now();
     let result = read_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/data")).unwrap()
-        .map(|d| d.unwrap().path())
+        .flatten()
+        .map(|d| d.path())
         .collect::<Vec<PathBuf>>()
         .par_iter()
         .flat_map(|path| {
