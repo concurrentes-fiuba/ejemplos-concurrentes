@@ -3,14 +3,15 @@
 extern crate image;
 
 use std::ops::Mul;
-use std::simd::{f32x16, f32x8, mask32x16, SimdFloat};
+use std::simd::{f32x16, mask32x16};
+use std::simd::num::SimdFloat;
 use std::time::Instant;
 
 use image::{GenericImageView, ImageBuffer, RgbImage};
 
 fn main() {
 
-    let input_path = concat!(env!("CARGO_MANIFEST_DIR"), "/data/totk.jpg");
+    let input_path = "data/totk.jpg";
     let input_image = &image::open(input_path).unwrap().to_rgba32f();
 
     let (width, height) = input_image.dimensions();
