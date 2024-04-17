@@ -96,7 +96,7 @@ fn philosopher(id: usize, chopsticks: Arc<Vec<Semaphore>>, await_click: &Semapho
 
             {
                 notify_state(PhilosopherState::AwaitingSecondChopstick);
-                let second = second_chopstick.acquire();
+                let second = second_chopstick.access();
 
                 notify_state(PhilosopherState::Eating);
                 await_click.acquire();
