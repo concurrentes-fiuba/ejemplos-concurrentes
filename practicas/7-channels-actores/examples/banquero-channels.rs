@@ -32,6 +32,7 @@ fn main() {
 
         while(devolvieron.len() < (INVERSORES as usize)) {
             let (who, how_much) = devolucion_receive.recv().unwrap();
+            println!("[Banquero] recibí de {} el monto {}", who, how_much);
             if !devolvieron.contains(&who) {
                 devolvieron.insert(who);
                 plata_semana += how_much;
@@ -48,8 +49,8 @@ fn main() {
 }
 
 fn iniciar_semana(plata: &mut f64, inversores: &Vec<(Sender<f64>, JoinHandle<()>)>) -> f64 {
-    let prestamo = plata / (INVERSORES as f64);
-    for (inversor, _) in &inversores {
+    let prestamo = *plata / (INVERSORES as f64);
+    for (inversor, _) in inversores {
         inversor.send(prestamo).unwrap();
     }
 
