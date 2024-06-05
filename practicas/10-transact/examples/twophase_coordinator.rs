@@ -5,12 +5,12 @@ use std::io::BufRead;
 use std::mem::size_of;
 use std::net::UdpSocket;
 use std::sync::{Arc, Condvar, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 fn id_to_addr(id: usize) -> String { "127.0.0.1:1234".to_owned() + &*id.to_string() }
 
 const STAKEHOLDERS: usize = 3;
-const TIMEOUT: Duration = Duration::from_secs(10);
+const TIMEOUT: Duration = Duration::from_secs(3);
 const TRANSACTION_COORDINATOR_ADDR: &str = "127.0.0.1:1234";
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
@@ -18,7 +18,7 @@ struct TransactionId(u32);
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 enum TransactionState {
-    Wait,
+    Wait(Instant),
     Commit,
     Abort,
 }
@@ -26,7 +26,7 @@ enum TransactionState {
 struct TransactionCoordinator {
     log: HashMap<TransactionId, TransactionState>,
     socket: UdpSocket,
-    responses: Arc<(Mutex<Vec<Option<TransactionState>>>, Condvar)>,
+    responses: Arc<(Mutex<Vec<TransactionState>>, Condvar)>,
 }
 
 
@@ -35,7 +35,7 @@ impl TransactionCoordinator {
         let mut ret = TransactionCoordinator {
             log: HashMap::new(),
             socket: UdpSocket::bind(TRANSACTION_COORDINATOR_ADDR).unwrap(),
-            responses: Arc::new((Mutex::new(vec![None; STAKEHOLDERS]), Condvar::new())),
+            responses: Arc::new((Mutex::new(vec![TransactionState::Wait(Instant::now()); STAKEHOLDERS]), Condvar::new())),
         };
 
         let mut clone = ret.clone();
@@ -47,7 +47,7 @@ impl TransactionCoordinator {
     fn submit(&mut self, t: TransactionId) -> bool {
         match self.log.get(&t) {
             None => self.full_protocol(t, false),
-            Some(TransactionState::Wait) => self.full_protocol(t, true),
+            Some(TransactionState::Wait(_)) => self.full_protocol(t, true),
             Some(TransactionState::Commit) => self.commit(t),
             Some(TransactionState::Abort) => self.abort(t)
         }
@@ -62,7 +62,7 @@ impl TransactionCoordinator {
     }
 
     fn prepare(&mut self, t: TransactionId) -> bool {
-        self.log.insert(t, TransactionState::Wait);
+        self.log.insert(t, TransactionState::Wait(Instant::now()));
         println!("[COORDINATOR] prepare {}", t.0);
         self.broadcast_and_wait(b'P', t, TransactionState::Commit)
     }
@@ -80,20 +80,37 @@ impl TransactionCoordinator {
     }
 
     fn broadcast_and_wait(&self, message: u8, t: TransactionId, expected: TransactionState) -> bool {
-        *self.responses.0.lock().unwrap() = vec![None; STAKEHOLDERS];
+        *self.responses.0.lock().unwrap() = vec![TransactionState::Wait(Instant::now()); STAKEHOLDERS];
         let mut msg = vec!(message);
         msg.extend_from_slice(&t.0.to_le_bytes());
         for stakeholder in 0..STAKEHOLDERS {
             println!("[COORDINATOR] envio {} id {} a {}", message, t.0, stakeholder);
             self.socket.send_to(&msg, id_to_addr(stakeholder)).unwrap();
         }
-        let responses = self.responses.1.wait_timeout_while(self.responses.0.lock().unwrap(), TIMEOUT, |responses| responses.iter().any(Option::is_none));
-        if responses.is_err() {
-            println!("[COORDINATOR] timeout {}", t.0);
-            false
-        } else {
-            responses.unwrap().0.iter().all(|opt| opt.is_some() && opt.unwrap() == expected)
+        loop {
+            let responses = self.responses.1.wait_timeout_while(self.responses.0.lock().unwrap(), TIMEOUT,
+                                                                |responses| responses.iter().any(|state| {
+                                                                    let now = Instant::now();
+                                                                    match state {
+                                                                        TransactionState::Wait(since) => now.duration_since(*since) < TIMEOUT,
+                                                                        _ => false
+                                                                    }
+                                                                }));
+            let guard = responses.unwrap();
+            if (guard.1.timed_out()) {
+                let now = Instant::now();
+                if guard.0.iter().any(|state| match state {
+                    TransactionState::Wait(since) => now.duration_since(*since) > TIMEOUT,
+                    _ => false
+                }) {
+                    println!("[COORDINATOR] global timeout");
+                    return false
+                }
+            } else {
+                return guard.0.iter().all(|state| *state == expected)
+            }
         }
+
     }
 
     fn receiver(&mut self) {
@@ -105,12 +122,17 @@ impl TransactionCoordinator {
             match &buf[0] {
                 b'C' => {
                     println!("[COORDINATOR] recibí COMMIT de {}", id_from);
-                    self.responses.0.lock().unwrap()[id_from] = Some(TransactionState::Commit);
+                    self.responses.0.lock().unwrap()[id_from] = TransactionState::Commit;
                     self.responses.1.notify_all();
                 }
                 b'A' => {
                     println!("[COORDINATOR] recibí ABORT de {}", id_from);
-                    self.responses.0.lock().unwrap()[id_from] = Some(TransactionState::Abort);
+                    self.responses.0.lock().unwrap()[id_from] = TransactionState::Abort;
+                    self.responses.1.notify_all();
+                }
+                b'K' => {
+                    println!("[COORDINATOR] recibí KEEPALIVE de {}", id_from);
+                    self.responses.0.lock().unwrap()[id_from] = TransactionState::Wait(Instant::now());
                     self.responses.1.notify_all();
                 }
                 _ => {

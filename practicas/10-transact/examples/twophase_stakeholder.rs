@@ -39,8 +39,14 @@ fn stakeholder(id:usize) {
                     Some(TransactionState::Accepted) | Some(TransactionState::Commit) => b'C',
                     Some(TransactionState::Abort) => b'A',
                     None => {
-                        if transaction_id % 10 != id {
-                            // TODO tomar recursos
+                        let unidad = transaction_id % 10;
+                        if unidad != id {
+                            // Simular la espera por el recurso (o el trabajo de "crearlo")
+                            // deberia ser en otro thread
+                            for i in 0..(unidad*(id+1)) {
+                                thread::sleep(Duration::from_millis(1000));
+                                socket.send_to(&*msg(b'K', id), from).unwrap();
+                            }
                             log.insert(transaction_id, TransactionState::Accepted);
                             b'C'
                         } else {
@@ -49,7 +55,6 @@ fn stakeholder(id:usize) {
                         }
                     }
                 };
-                thread::sleep(Duration::from_millis(1000));
                 socket.send_to(&*msg(m, id), from).unwrap();
                 // TODO: iniciar un timeout
             }

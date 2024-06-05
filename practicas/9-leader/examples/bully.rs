@@ -1,15 +1,13 @@
-use std::any::Any;
-use std::collections::{HashMap, HashSet};
-use std::io::{BufRead, BufReader, Write};
+use std::convert::TryInto;
 use std::mem::size_of;
-use std::net::{SocketAddr, TcpListener, TcpStream, UdpSocket};
-use std::sync::{Arc, Condvar, Mutex};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::net::{SocketAddr, UdpSocket};
+use std::ptr::addr_eq;
+use std::sync::{Arc, Condvar, mpsc, Mutex, RwLock};
+use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::Duration;
 
 use rand::{Rng, thread_rng};
-use std::convert::TryInto;
 
 fn id_to_ctrladdr(id: usize) -> String { "127.0.0.1:1234".to_owned() + &*id.to_string() }
 fn id_to_dataaddr(id: usize) -> String { "127.0.0.1:1235".to_owned() + &*id.to_string() }
@@ -152,51 +150,97 @@ impl LeaderElection {
 fn main() {
     let mut handles = vec!();
     for id in 0..TEAM_MEMBERS {
-        handles.push(thread::spawn(move || { team_member(id) }));
+        handles.push(thread::spawn(move || { TeamMember::new(id).run() }));
     }
     handles.into_iter().for_each(|h| { h.join(); });
 }
 
-fn team_member(id: usize) {
+struct TeamMember {
+    id: usize,
+    socket: UdpSocket,
+    enabled: RwLock<bool>,
+}
 
-    loop {
+impl TeamMember {
 
-        println!("[{}] inicio", id);
-        let mut scrum_master = LeaderElection::new(id);
-        let mut socket = UdpSocket::bind(id_to_dataaddr(id)).unwrap();
-        let mut buf = [0; 4];
+    fn new(id: usize) -> Arc<Self> {
+        let socket = UdpSocket::bind(id_to_dataaddr(id)).unwrap();
+        Arc::new(TeamMember {
+            id,
+            socket,
+            enabled: RwLock::new(true),
+        })
+    }
+
+    fn run(self: &Arc<Self>) {
+
+        let (got_pong, pong): (Sender<SocketAddr>, Receiver<SocketAddr>) = mpsc::channel();
+        let this = self.clone();
+        thread::spawn(move || this.receiver(got_pong));
 
         loop {
 
-            if scrum_master.am_i_leader() {
-                println!("[{}] soy SM", id);
-                if thread_rng().gen_range(0, 100) >= 95 {
-                    println!("[{}] me tomo vacaciones", id);
+            println!("[{}] inicio", self.id);
+            let mut scrum_master = LeaderElection::new(self.id);
+
+            *self.enabled.write().unwrap() = true;
+
+            loop {
+
+                if scrum_master.am_i_leader() {
+                    println!("[{}] soy SM", self.id);
+                    thread::sleep(Duration::from_millis(thread_rng().gen_range(5000, 10000)));
+                    println!("[{}] me tomo vacaciones", self.id);
+                    *self.enabled.write().unwrap() = false;
                     break;
-                }
-                socket.set_read_timeout(None);
-                let (size, from) = socket.recv_from(&mut buf).unwrap();
-                println!("[{}] doy trabajo a {}", id, from);
-                socket.send_to("PONG".as_bytes(), from).unwrap();
-            } else {
-                let leader_id = scrum_master.get_leader_id();
-                println!("[{}] pido trabajo al SM {}", id, leader_id);
-                socket.send_to("PING".as_bytes(), id_to_dataaddr(leader_id)).unwrap();
-                socket.set_read_timeout(Some(TIMEOUT)).unwrap();
-                if let Ok((size, from)) = socket.recv_from(&mut buf) {
-                    println!("[{}] trabajando", id);
-                    thread::sleep(Duration::from_millis(thread_rng().gen_range(1000, 3000)));
                 } else {
-                    // por simplicidad consideramos que cualquier error necesita un lider nuevo
-                    println!("[{}] SM caido, disparo elección", id);
-                    scrum_master.find_new()
+                    let leader_id = scrum_master.get_leader_id();
+                    println!("[{}] pido trabajo al SM {}", self.id, leader_id);
+                    self.socket.send_to("PING".as_bytes(), id_to_dataaddr(leader_id)).unwrap();
+                    if let Ok(addr) = pong.recv_timeout(TIMEOUT) {
+                        println!("[{}] recibí trabajo de {}", self.id, addr);
+                        thread::sleep(Duration::from_millis(thread_rng().gen_range(1000, 3000)));
+                    } else {
+                        // por simplicidad consideramos que cualquier error necesita un lider nuevo
+                        println!("[{}] SM caido, disparo elección", self.id);
+                        scrum_master.find_new()
+                    }
                 }
             }
+
+            scrum_master.stop();
+
+            thread::sleep(Duration::from_secs(30));
+
         }
+    }
 
-        scrum_master.stop();
+    fn receiver(self: &Arc<Self>, got_pong: Sender<SocketAddr>) {
+        const PING: [u8; 4] = [b'P', b'I', b'N', b'G'];
+        const PONG: [u8; 4] = [b'P', b'O', b'N', b'G'];
 
-        thread::sleep(Duration::from_secs(30));
+        let mut buf = [0; 4];
+        loop {
+            match self.socket.recv_from(&mut buf) {
+                Ok((size, from)) => {
+                    match buf {
+                        PING => {
+                            println!("[{}] PING de {}", self.id, from);
+                            if *self.enabled.read().unwrap() {
+                                self.socket.send_to(&PONG, from).unwrap();
+                            } else {
+                                println!("[{}] ignorado", self.id)
+                            }
+                        }
+                        PONG => {
+                            got_pong.send(from).unwrap();
+                        }
+                        _ => println!("[{}] mensaje desconocido desde {}: {:?}", self.id, from, buf)
+                    }
+                }
+                Err(e) => println!("[{}] error leyendo socket {}", self.id, e)
+            }
+        }
 
     }
 }
