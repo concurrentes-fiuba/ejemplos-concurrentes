@@ -93,6 +93,7 @@ impl LeaderElection {
             }
         }
         *self.leader_id.0.lock().unwrap() = Some(self.id);
+        self.leader_id.1.notify_all();
     }
 
     fn receiver(&mut self) {
@@ -210,7 +211,7 @@ impl TeamMember {
 
             scrum_master.stop();
 
-            thread::sleep(Duration::from_secs(30));
+            thread::sleep(Duration::from_secs(60));
 
         }
     }
