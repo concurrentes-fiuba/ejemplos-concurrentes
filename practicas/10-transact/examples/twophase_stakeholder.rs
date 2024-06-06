@@ -40,13 +40,13 @@ fn stakeholder(id:usize) {
                     Some(TransactionState::Abort) => b'A',
                     None => {
                         let unidad = transaction_id % 10;
+                        // Simular la espera por el recurso (o el trabajo de "crearlo")
+                        // deberia ser en otro thread
+                        for i in 0..(unidad*(id+1)) {
+                            thread::sleep(Duration::from_millis(1000));
+                            socket.send_to(&*msg(b'K', id), from).unwrap();
+                        }
                         if unidad != id {
-                            // Simular la espera por el recurso (o el trabajo de "crearlo")
-                            // deberia ser en otro thread
-                            for i in 0..(unidad*(id+1)) {
-                                thread::sleep(Duration::from_millis(1000));
-                                socket.send_to(&*msg(b'K', id), from).unwrap();
-                            }
                             log.insert(transaction_id, TransactionState::Accepted);
                             b'C'
                         } else {
