@@ -69,8 +69,8 @@ async fn main() {
             let (read, write_half) = split(stream);
             HelloServer::add_stream(LinesStream::new(BufReader::new(read).lines()), ctx);
             let write = Some(write_half);
-            let sender = TcpSender { write }.start();
-            HelloServer { addr, tcp_sender: sender }
+            let tcp_sender = TcpSender { write }.start();
+            HelloServer { addr, tcp_sender }
         });
     }
 }
