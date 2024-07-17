@@ -1,30 +1,46 @@
 use std::net::SocketAddr;
 
-use actix::{Actor, ActorFutureExt, Context, ContextFutureSpawner, StreamHandler, WrapFuture};
+use actix::{Actor, ActorFutureExt, Addr, AtomicResponse, Context, Handler, Message, StreamHandler, WrapFuture};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, split, WriteHalf};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_stream::wrappers::LinesStream;
 
-struct HelloServer {
+struct TcpSender {
     write: Option<WriteHalf<TcpStream>>,
-    addr: SocketAddr,
 }
 
-impl HelloServer {
+#[derive(Message)]
+#[rtype(result = "()")]
+struct TcpMessage(String);
 
-    fn send(&mut self, msg: String, ctx: &mut <HelloServer as Actor>::Context) {
+impl Actor for TcpSender {
+    type Context = Context<Self>;
+}
+
+impl Handler<TcpMessage> for TcpSender {
+    type Result = AtomicResponse<Self, ()>;
+
+    fn handle(&mut self, msg: TcpMessage, ctx: &mut Self::Context) -> Self::Result {
         let mut write = self.write.take()
-            .expect("No debería poder llegar otro mensaje antes de que vuelva por usar ctx.wait");
-        async move {
-            write
-                .write_all(msg.as_bytes()).await
-                .expect("should have sent");
-            write
-        }.into_actor(self)
-            .map(|write, this, _| this.write = Some(write))
-            .wait(ctx)
+            .expect("No debería poder llegar otro mensaje antes de que vuelva por usar AtomicResponse");
+        AtomicResponse::new(Box::pin(
+            async move {
+                write
+                    .write_all(msg.0.as_bytes()).await
+                    .expect("should have sent");
+                write
+            }.into_actor(self)
+                .map(|write, this, _| this.write = Some(write))
+        ))
     }
 }
+
+
+struct HelloServer {
+    addr: SocketAddr,
+    tcp_sender: Addr<TcpSender>,
+}
+
 impl Actor for HelloServer {
     type Context = Context<Self>;
 }
@@ -33,7 +49,7 @@ impl StreamHandler<Result<String, std::io::Error>> for HelloServer {
     fn handle(&mut self, read: Result<String, std::io::Error>, ctx: &mut Self::Context) {
         if let Ok(line) = read {
             println!("[{:?}] Hello {}", self.addr, line);
-            self.send(format!("Hello {}\n", line), ctx);
+            self.tcp_sender.try_send(TcpMessage(format!("Hello {}\n", line))).expect("mailbox full?");
         } else {
             println!("[{:?}] Failed to read line {:?}", self.addr, read);
         }
@@ -53,7 +69,8 @@ async fn main() {
             let (read, write_half) = split(stream);
             HelloServer::add_stream(LinesStream::new(BufReader::new(read).lines()), ctx);
             let write = Some(write_half);
-            HelloServer { addr, write }
+            let sender = TcpSender { write }.start();
+            HelloServer { addr, tcp_sender: sender }
         });
     }
 }
