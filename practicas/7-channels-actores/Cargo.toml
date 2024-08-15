@@ -5,10 +5,10 @@ edition = "2018"
 
 [dependencies]
 rand = "0.7"
-actix = "0.11.1"
+actix = "0.13.5"
 actix-rt = "2.0" # <-- Runtime for actix
 console-subscriber = { git = "https://github.com/tokio-rs/console.git" }
 ntest = "*"
 futures-channel = "*"
 tokio = "*"
-
+actix_async_handler = "0.1.0"

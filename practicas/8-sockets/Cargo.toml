@@ -9,5 +9,6 @@ std-semaphore = "0.1"
 tokio = { version = "^1", features = ["full"] }
 quote = "1.0.27"
 tokio-stream = { version = "^0.1.14", features = ["io-util"] }
-actix = "0.13.0"
+actix = "0.13.5"
 actix-rt = "2.0" # <-- Runtime for actix
+actix_async_handler = "0.1.0"

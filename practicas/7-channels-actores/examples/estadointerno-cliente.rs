@@ -3,6 +3,7 @@ extern crate actix;
 use std::time::Duration;
 
 use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, Message, System, WrapFuture};
+use actix_async_handler::async_handler;
 use rand::{Rng, thread_rng};
 use tokio::time::sleep;
 
@@ -67,18 +68,16 @@ impl Actor for Producer {
     type Context = Context<Self>;
 }
 
+#[async_handler]
 impl Handler<Produce> for Producer {
     type Result = ();
 
     fn handle(&mut self, msg: Produce, ctx: &mut Context<Self>) -> Self::Result {
-        ctx.wait(sleep(Duration::from_millis(thread_rng().gen_range(500, 1500)))
-            .into_actor(self)
-            .map(move |_result, me, ctx| {
-                let amount = thread_rng().gen_range(-100, 100);
-                println!("[Producer {}] - sending {}", me.id, amount);
-                me.calc.try_send(Add(amount)).unwrap();
-                ctx.address().try_send(Produce()).unwrap();
-            }))
+        sleep(Duration::from_millis(thread_rng().gen_range(500, 1500))).await;
+        let amount = thread_rng().gen_range(-100, 100);
+        println!("[Producer {}] - sending {}", self.id, amount);
+        self.calc.try_send(Add(amount)).unwrap();
+        ctx.address().try_send(Produce()).unwrap();
     }
 }
 
@@ -95,18 +94,15 @@ impl Actor for Reporter {
     type Context = Context<Self>;
 }
 
+#[async_handler]
 impl Handler<Report> for Reporter {
     type Result = ();
 
-    fn handle(&mut self, msg: Report, ctx: &mut Context<Self>) -> Self::Result {
-        ctx.wait(sleep(Duration::from_millis(thread_rng().gen_range(1000, 3000)))
-            .into_actor(self)
-            .then(|_result, me, ctx| {
-                me.calc.send(Get()).into_actor(me)
-            }).map(|result, me, ctx| {
-                println!("[Reporter {}] - {}", me.id, result.expect("no vino!"));
-                ctx.address().try_send(Report()).unwrap();
-            }));
+    async fn handle(&mut self, msg: Report, ctx: &mut Context<Self>) -> Self::Result {
+        sleep(Duration::from_millis(thread_rng().gen_range(1000, 3000))).await;
+        let result = self.calc.send(Get()).await;
+        println!("[Reporter {}] - {}", self.id, result.expect("no vino!"));
+        ctx.address().try_send(Report()).unwrap();
     }
 }
 

@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
-use actix::{Actor, ActorFutureExt, Addr, AtomicResponse, Context, Handler, Message, StreamHandler, WrapFuture};
+use actix::{Actor, ActorFutureExt, Addr, Context, Handler, Message, StreamHandler, WrapFuture};
+use actix_async_handler::async_handler;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, split, WriteHalf};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_stream::wrappers::LinesStream;
@@ -17,21 +18,23 @@ impl Actor for TcpSender {
     type Context = Context<Self>;
 }
 
+#[async_handler]
 impl Handler<TcpMessage> for TcpSender {
-    type Result = AtomicResponse<Self, ()>;
+    type Result = ();
 
-    fn handle(&mut self, msg: TcpMessage, ctx: &mut Self::Context) -> Self::Result {
+    async fn handle(&mut self, msg: TcpMessage, ctx: &mut Self::Context) -> Self::Result {
         let mut write = self.write.take()
             .expect("No debería poder llegar otro mensaje antes de que vuelva por usar AtomicResponse");
-        AtomicResponse::new(Box::pin(
-            async move {
-                write
-                    .write_all(msg.0.as_bytes()).await
-                    .expect("should have sent");
-                write
-            }.into_actor(self)
-                .map(|write, this, _| this.write = Some(write))
-        ))
+
+        let ret_write = async move {
+            write
+                .write_all(msg.0.as_bytes()).await
+                .expect("should have sent");
+            write
+        }.await;
+
+        self.write = Some(ret_write);
+
     }
 }
 

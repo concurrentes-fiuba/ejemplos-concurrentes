@@ -5,10 +5,11 @@ use std::future::Future;
 use std::pin::Pin;
 use std::time::Duration;
 
-use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, Message, Recipient, ResponseActFuture, System, WrapFuture};
+use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, Message, Recipient, System, WrapFuture};
 use actix::clock::sleep;
 use actix::dev::fut::future::Map;
 use actix::fut::result;
+use actix_async_handler::async_handler;
 use rand::{Rng, thread_rng};
 
 const N: usize = 5;
@@ -21,6 +22,10 @@ struct SetNeighbours(Neighbours);
 
 #[derive(Message)]
 #[rtype(result = "()")]
+struct Think;
+
+#[derive(Message)]
+#[rtype(result = "()")]
 struct Hungry;
 
 #[derive(Message)]
@@ -30,6 +35,10 @@ struct ChopstickRequest(ChopstickId);
 #[derive(Message)]
 #[rtype(result = "()")]
 struct ChopstickResponse(ChopstickId);
+
+#[derive(Message)]
+#[rtype(result = "()")]
+struct TryToEat;
 
 #[derive(Message)]
 #[rtype(result = "()")]
@@ -52,51 +61,51 @@ struct Philosopher {
     neighbours: Neighbours
 }
 
-impl Philosopher {
-    fn sleep<WakeupMessage>(&self, msg: WakeupMessage) -> ResponseActFuture<Self, ()>
-        where
-            Self: Handler<WakeupMessage>,
-            WakeupMessage: Message + Send + 'static,
-            WakeupMessage::Result: Send,
-    {
-        println!("[{}] pensando", self.id);
-        Box::pin(sleep(Duration::from_millis(thread_rng().gen_range(2000, 5000)))
-            .into_actor(self)
-            .map(move |_result, _me, ctx| {
-                ctx.address().try_send(msg).unwrap();
-            }))
-    }
-
-    fn eat_if_ready(&self) -> ResponseActFuture<Self, ()> {
-        if self.chopsticks.iter().all(|(_id, state)| *state != ChopstickState::DontHave) { // si los tengo todos
-            println!("[{}] comiendo", self.id);
-            self.sleep(EatingDone)
-        } else {
-            println!("[{}] aun no puedo comer", self.id);
-            Box::pin(std::future::ready(()).into_actor(self))
-        }
-    }
-
-}
-
 impl Actor for Philosopher {
     type Context = Context<Self>;
 }
 
 impl Handler<SetNeighbours> for Philosopher {
-    type Result = ResponseActFuture<Self, ()>;
+    type Result = ();
 
-    fn handle(&mut self, msg: SetNeighbours, _ctx: &mut Context<Self>) -> Self::Result {
+    fn handle(&mut self, msg: SetNeighbours, ctx: &mut Context<Self>) -> Self::Result {
         println!("[{}] recibi a mis vecinos", self.id);
         self.neighbours = msg.0;
-        self.sleep(Hungry)
+        ctx.address().try_send(Think).unwrap();
     }
 }
 
-impl Handler<Hungry> for Philosopher {
-    type Result = ResponseActFuture<Self, ()>;
+#[async_handler]
+impl Handler<Think> for Philosopher {
+    type Result = ();
 
-    fn handle(&mut self, _msg: Hungry, _ctx: &mut Context<Self>) -> Self::Result {
+    async fn handle(&mut self, msg: Think, ctx: &mut Context<Self>) -> Self::Result {
+        println!("[{}] pensando", self.id);
+        sleep(Duration::from_millis(thread_rng().gen_range(2000, 5000))).await;
+        ctx.address().try_send(Hungry).unwrap();
+    }
+}
+
+#[async_handler]
+impl Handler<TryToEat> for Philosopher {
+    type Result = ();
+
+    async fn handle(&mut self, msg: TryToEat, ctx: &mut Context<Self>) -> Self::Result {
+        if self.chopsticks.iter().all(|(_id, state)| *state != ChopstickState::DontHave) { // si los tengo todos
+            println!("[{}] comiendo", self.id);
+            sleep(Duration::from_millis(thread_rng().gen_range(2000, 5000))).await;
+            ctx.address().try_send(EatingDone).unwrap();
+        } else {
+            println!("[{}] aun no puedo comer", self.id);
+        }
+    }
+}
+
+#[async_handler]
+impl Handler<Hungry> for Philosopher {
+    type Result = ();
+
+    async fn handle(&mut self, _msg: Hungry, ctx: &mut Context<Self>) -> Self::Result {
         println!("[{}] por comer", self.id);
         for (chopstick_id, state) in self.chopsticks.iter() {
             if *state == ChopstickState::DontHave {
@@ -105,7 +114,7 @@ impl Handler<Hungry> for Philosopher {
             }
         }
 
-        self.eat_if_ready()
+        ctx.address().try_send(TryToEat).unwrap();
     }
 }
 
@@ -120,7 +129,7 @@ impl Handler<ChopstickRequest> for Philosopher {
         match chopstick_state {
             Some(ChopstickState::Dirty) => {
                 println!("[{}] se lo doy ahora", self.id);
-                self.neighbours.get(&chopstick).unwrap().try_send(ChopstickResponse(msg.0));
+                self.neighbours.get(&chopstick).unwrap().try_send(ChopstickResponse(msg.0)).unwrap();
                 self.chopsticks.insert(chopstick, ChopstickState::DontHave);
             },
             Some(ChopstickState::Clean) => {
@@ -134,20 +143,22 @@ impl Handler<ChopstickRequest> for Philosopher {
     }
 }
 
+#[async_handler]
 impl Handler<ChopstickResponse> for Philosopher {
-    type Result = ResponseActFuture<Self, ()>;
+    type Result = ();
 
-    fn handle(&mut self, msg: ChopstickResponse, _ctx: &mut Context<Self>) -> Self::Result {
+    async fn handle(&mut self, msg: ChopstickResponse, ctx: &mut Context<Self>) -> Self::Result {
         println!("[{}] recibi palito {}", self.id, msg.0.0);
         self.chopsticks.insert(msg.0,ChopstickState::Clean);
-        self.eat_if_ready()
+        ctx.address().try_send(TryToEat).unwrap();
     }
 }
 
+#[async_handler]
 impl Handler<EatingDone> for Philosopher {
-    type Result = ResponseActFuture<Self, ()>;
+    type Result = ();
 
-    fn handle(&mut self, _msg: EatingDone, _ctx: &mut Context<Self>) -> Self::Result {
+    async fn handle(&mut self, _msg: EatingDone, ctx: &mut Context<Self>) -> Self::Result {
         println!("[{}] terminé de comer", self.id);
         for (chopstick, mut state) in self.chopsticks.iter_mut() {
             if *state == ChopstickState::Requested {
@@ -159,7 +170,7 @@ impl Handler<EatingDone> for Philosopher {
                 *state = ChopstickState::Dirty
             }
         }
-        self.sleep(Hungry)
+        ctx.address().try_send(Think).unwrap();
     }
 }
 

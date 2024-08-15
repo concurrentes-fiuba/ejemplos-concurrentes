@@ -1,10 +1,11 @@
 extern crate actix;
 
 use std::collections::HashSet;
-use actix::{Actor, Context, Handler, System, Message, Addr, AsyncContext, WrapFuture, Recipient, ActorFutureExt, ResponseActFuture};
+use actix::{Actor, Context, Handler, System, Message, Addr, AsyncContext, WrapFuture, Recipient, ActorFutureExt};
 use rand::{thread_rng, Rng};
 use actix::clock::sleep;
 use std::time::Duration;
+use actix_async_handler::async_handler;
 
 const INVERSORES:usize = 5;
 
@@ -88,18 +89,16 @@ impl Handler<ResultadoInversion> for Banquero {
     }
 }
 
+#[async_handler]
 impl Handler<Invertir> for Inversor {
-    type Result = ResponseActFuture<Self, ()>;
+    type Result = ();
 
     fn handle(&mut self, msg: Invertir, _ctx: &mut Context<Self>) -> Self::Result {
         println!("[INV {}] recibo inversion por {}", self.id, msg.amount);
-        Box::pin(sleep(Duration::from_millis(thread_rng().gen_range(500, 1500)))
-            .into_actor(self)
-            .map(move |_result, me, _ctx| {
-                let resultado = msg.amount * gen_range(0.5, 1.5);
-                println!("[INV {}] devuelvo {}", me.id, resultado);
-                msg.sender.try_send(ResultadoInversion(me.id, resultado)).unwrap();
-            }))
+        sleep(Duration::from_millis(thread_rng().gen_range(500, 1500))).await;
+        let resultado = msg.amount * thread_rng().gen_range(0.5, 1.5);
+        println!("[INV {}] devuelvo {}", self.id, resultado);
+        msg.sender.try_send(ResultadoInversion(self.id, resultado)).unwrap();
     }
 }
 
