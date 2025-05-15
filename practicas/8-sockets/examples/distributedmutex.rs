@@ -2,13 +2,14 @@ use std::any::Any;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream, UdpSocket, SocketAddr};
 use std::sync::{Arc, Condvar, Mutex};
-use std::thread;
+use std::{env, thread};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use rand::{Rng, thread_rng};
 use std::mem::size_of;
 use std_semaphore::Semaphore;
 use std::collections::{HashMap, HashSet};
+use std::process::{Child, Command};
 
 fn id_to_addr(id: usize) -> String {
     "127.0.0.1:1234".to_owned() + &*id.to_string()
@@ -109,11 +110,27 @@ impl DistMutex {
 const CLIENTS: usize = 5;
 
 fn main() {
-    let mut handles = vec!();
-    for id in 0..CLIENTS {
-        handles.push(thread::spawn(move || { client(id) }));
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() < 2 {
+        let clients: Vec<Child> = (0..CLIENTS).map(|id| {
+            Command::new("cargo")
+                .arg("run")
+                .arg("--example")
+                .arg("distributedmutex")
+                .arg("--")
+                .arg(id.to_string())
+                .spawn()
+                .expect("failed to start child")
+        }).collect();
+
+        clients.into_iter().for_each(|mut client| { client.wait().unwrap(); })
+
+    } else {
+        let id = args[1].parse().expect("can't parse id");
+        println!("soy proceso {}", id);
+        client(id)
     }
-    handles.into_iter().for_each(|h| { h.join(); });
 }
 
 fn client(id: usize) {

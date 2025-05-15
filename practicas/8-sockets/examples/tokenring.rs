@@ -5,7 +5,8 @@ use std::mem::size_of;
 use std::net::{SocketAddr, TcpListener, TcpStream, UdpSocket};
 use std::sync::{Arc, Condvar, Mutex};
 use std::sync::atomic::AtomicBool;
-use std::thread;
+use std::{env, thread};
+use std::process::{Child, Command};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use rand::{Rng, thread_rng};
@@ -82,12 +83,27 @@ impl DistMutex {
 const CLIENTS: usize = 5;
 
 fn main() {
-    let mut handles = vec!();
-    for id in 0..CLIENTS {
-        handles.push(thread::spawn(move || { client(id) }));
-    }
+    let args: Vec<String> = env::args().collect();
 
-    handles.into_iter().for_each(|h| { h.join(); });
+    if args.len() < 2 {
+        let clients: Vec<Child> = (0..CLIENTS).map(|id| {
+            Command::new("cargo")
+                .arg("run")
+                .arg("--example")
+                .arg("tokenring")
+                .arg("--")
+                .arg(id.to_string())
+                .spawn()
+                .expect("failed to start child")
+        }).collect();
+
+        clients.into_iter().for_each(|mut client| { client.wait().unwrap(); })
+
+    } else {
+        let id = args[1].parse().expect("can't parse id");
+        println!("soy proceso {}", id);
+        client(id)
+    }
 }
 
 fn client(id: usize) {

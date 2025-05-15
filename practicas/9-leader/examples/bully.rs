@@ -4,7 +4,8 @@ use std::net::{SocketAddr, UdpSocket};
 use std::ptr::addr_eq;
 use std::sync::{Arc, Condvar, mpsc, Mutex, RwLock};
 use std::sync::mpsc::{Receiver, Sender};
-use std::thread;
+use std::{env, thread};
+use std::process::{Child, Command};
 use std::time::Duration;
 
 use rand::{Rng, thread_rng};
@@ -149,11 +150,27 @@ impl LeaderElection {
 }
 
 fn main() {
-    let mut handles = vec!();
-    for id in 0..TEAM_MEMBERS {
-        handles.push(thread::spawn(move || { TeamMember::new(id).run() }));
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() < 2 {
+        let clients: Vec<Child> = (0..TEAM_MEMBERS).map(|id| {
+            Command::new("cargo")
+                .arg("run")
+                .arg("--example")
+                .arg("bully")
+                .arg("--")
+                .arg(id.to_string())
+                .spawn()
+                .expect("failed to start child")
+        }).collect();
+
+        clients.into_iter().for_each(|mut client| { client.wait().unwrap(); })
+
+    } else {
+        let id = args[1].parse().expect("can't parse id");
+        println!("soy proceso {}", id);
+        TeamMember::new(id).run()
     }
-    handles.into_iter().for_each(|h| { h.join(); });
 }
 
 struct TeamMember {
