@@ -1,10 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
-use std::time::Duration;
 
-use rand::{Rng, thread_rng};
-
-fn play(contenders_count:i32) -> i32 {
+fn play(contenders_count:usize) -> usize {
 
     let winner = Arc::new(Mutex::new(None));
 
@@ -12,7 +9,6 @@ fn play(contenders_count:i32) -> i32 {
         .map(|id| {
             let winner_local = winner.clone();
             thread::spawn(move || {
-                thread::sleep(Duration::from_millis(thread_rng().gen_range(500, 2000)));
                 let mut winner = winner_local.lock().unwrap();
                 if *winner == None {
                     *winner = Some(id)
@@ -30,5 +26,10 @@ fn play(contenders_count:i32) -> i32 {
 }
 
 fn main() {
-    println!("{:?}", play(5))
+    let contenders_count = 5;
+    let mut wins = vec![0; contenders_count];
+    for i in 0..10000 {
+        wins[play(contenders_count)]+=1
+    }
+    println!("{:?}", wins);
 }

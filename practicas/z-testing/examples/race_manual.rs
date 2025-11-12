@@ -13,17 +13,13 @@ use crate::contender::Contender;
 
 mod contender {
     use std::sync::{Arc, Mutex};
-    use std::thread;
-    use std::time::Duration;
-
-    use rand::{Rng, thread_rng};
 
     pub(crate) trait Contender {
 
         fn new(id: i32) -> Self;
 
         fn run(&self, winner_mutex: Arc<Mutex<Option<i32>>>) {
-            self.sleep();
+            self.started();
             let mut winner = winner_mutex.lock().unwrap();
             if *winner == None {
                 *winner = Some(self.get_id())
@@ -32,8 +28,7 @@ mod contender {
 
         }
 
-        fn sleep(&self) {
-            thread::sleep(Duration::from_millis(thread_rng().gen_range(500, 2000)));
+        fn started(&self) {
         }
 
         fn finish(&self) {}
@@ -93,7 +88,7 @@ mod tests {
     use serial_test::serial;
 
     use crate::contender::Contender;
-    use crate::tests::TestableContenderState::{AWAKE, FINISHED, SLEEPING};
+    use crate::tests::TestableContenderState::{FINISHED, RUNNING, STARTED};
 
     use super::*;
 
@@ -104,8 +99,7 @@ mod tests {
     #[derive(PartialEq)]
     enum TestableContenderState {
         STARTED,
-        SLEEPING,
-        AWAKE,
+        RUNNING,
         FINISHED
     }
 
@@ -121,18 +115,17 @@ mod tests {
                 id
             };
 
-            set_and_notify(id, TestableContenderState::STARTED);
-
             contender
 
         }
 
-        fn sleep(&self) {
-            set_and_wait(self.id, SLEEPING, TestableContenderState::AWAKE);
+        fn started(&self) {
+            set_and_wait(self.id, STARTED, RUNNING);
         }
 
         fn finish(&self) {
-            set_and_notify(self.id, FINISHED);
+            contenders.0.lock().unwrap().insert(self.id, FINISHED);
+            contenders.1.notify_all();
         }
 
         fn get_id(&self) -> i32 {
@@ -140,16 +133,11 @@ mod tests {
         }
     }
 
-    fn set_and_notify(id:i32, state:TestableContenderState) {
-        contenders.0.lock().unwrap().insert(id, state);
-        contenders.1.notify_all();
-    }
-
     fn set_and_wait(id:i32, to_set:TestableContenderState, to_await:TestableContenderState) {
         let mut guard = contenders.0.lock().unwrap();
         guard.insert(id, to_set);
         contenders.1.notify_all();
-        let _ = contenders.1.wait_while(guard, |c| *c.get(&id).unwrap() != to_await).unwrap();
+        drop(contenders.1.wait_while(guard, |c| *c.get(&id).unwrap() != to_await).unwrap());
     }
 
     #[test]
@@ -163,13 +151,13 @@ mod tests {
         });
 
         {
-            let _ = contenders.1
-                .wait_while(contenders.0.lock().unwrap(), |w| w.len() < 3 || w.values().any(|s| *s != SLEEPING))
-                .unwrap();
+            drop(contenders.1
+                .wait_while(contenders.0.lock().unwrap(), |w| w.len() < 3 || w.values().any(|s| *s != STARTED))
+                .unwrap());
         }
-        set_and_wait(0, AWAKE, FINISHED);
-        set_and_wait(1, AWAKE, FINISHED);
-        set_and_wait(2, AWAKE, FINISHED);
+        set_and_wait(0, RUNNING, FINISHED);
+        set_and_wait(1, RUNNING, FINISHED);
+        set_and_wait(2, RUNNING, FINISHED);
 
         assert_eq!(0, playing.join().unwrap());
     }
@@ -184,12 +172,12 @@ mod tests {
             play(3)
         });
 
-        let _ = contenders.1
-            .wait_while(contenders.0.lock().unwrap(), |w| w.len() < 3 || w.values().any(|s| *s != SLEEPING)).unwrap();
+        drop(contenders.1
+            .wait_while(contenders.0.lock().unwrap(), |w| w.len() < 3 || w.values().any(|s| *s != STARTED)).unwrap());
 
-        set_and_wait(2, AWAKE, FINISHED);
-        set_and_wait(1, AWAKE, FINISHED);
-        set_and_wait(0, AWAKE, FINISHED);
+        set_and_wait(2, RUNNING, FINISHED);
+        set_and_wait(1, RUNNING, FINISHED);
+        set_and_wait(0, RUNNING, FINISHED);
 
         assert_eq!(2, playing.join().unwrap());
     }
@@ -204,12 +192,12 @@ mod tests {
             play(3)
         });
 
-        let _ = contenders.1
-            .wait_while(contenders.0.lock().unwrap(), |w| w.len() < 3 || w.values().any(|s| *s != SLEEPING)).unwrap();
+        drop(contenders.1
+            .wait_while(contenders.0.lock().unwrap(), |w| w.len() < 3 || w.values().any(|s| *s != STARTED)).unwrap());
 
-        set_and_wait(1, AWAKE, FINISHED);
-        set_and_wait(0, AWAKE, FINISHED);
-        set_and_wait(2, AWAKE, FINISHED);
+        set_and_wait(1, RUNNING, FINISHED);
+        set_and_wait(0, RUNNING, FINISHED);
+        set_and_wait(2, RUNNING, FINISHED);
         assert_eq!(1, playing.join().unwrap());
     }
 }
