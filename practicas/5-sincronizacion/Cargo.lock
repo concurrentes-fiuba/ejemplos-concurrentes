@@ -1299,7 +1299,6 @@ dependencies = [
  "num-derive",
  "num-traits",
  "rand",
- "rental",
  "std-semaphore",
 ]
 

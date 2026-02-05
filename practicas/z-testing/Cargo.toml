@@ -18,7 +18,7 @@ serial_test = "*"
 ntest = "*"
 futures-channel = "*"
 tokio = "*"
-
+actix_async_handler = "0.1.0"
 
 [target.'cfg(loom)'.dependencies]
 loom = "0.7.2"

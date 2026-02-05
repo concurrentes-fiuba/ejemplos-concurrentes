@@ -48,6 +48,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix_async_handler"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ca201f173c8bcea4f7f97855709b257ec0bac121c14f391ddfad0ab2930bc2c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "rust-format",
+ "syn 2.0.110",
+]
+
+[[package]]
 name = "actix_derive"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -607,6 +619,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 
 [[package]]
+name = "rust-format"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60e7c00b6c3bf5e38a880eec01d7e829d12ca682079f8238a464def3c4b31627"
+dependencies = [
+ "proc-macro2",
+]
+
+[[package]]
 name = "rustversion"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -710,6 +731,7 @@ version = "0.1.0"
 dependencies = [
  "actix",
  "actix-rt",
+ "actix_async_handler",
  "futures-channel",
  "lazy_static",
  "loom",

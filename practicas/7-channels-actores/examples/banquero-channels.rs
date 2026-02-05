@@ -8,63 +8,63 @@ use std::thread::JoinHandle;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 
-const INVERSORES: i32 = 10;
+const WORKERS: i32 = 10;
 
 fn main() {
-    let mut plata = 1000.0;
+    let mut signal = 100.0;
 
-    let (devolucion_send, devolucion_receive) = mpsc::channel();
+    let (result_send, result_receive) = mpsc::channel();
 
-    let inversores: Vec<(Sender<f64>, JoinHandle<()>)> = (0..INVERSORES)
+    let workers: Vec<(Sender<f64>, JoinHandle<()>)> = (0..WORKERS)
         .map(|id| {
-            let (inversor_send, inversor_receive) = mpsc::channel();
-            let devolucion_send_inversor = devolucion_send.clone();
-            let t = thread::spawn(move || inversor(id, inversor_receive, devolucion_send_inversor));
-            (inversor_send, t)
+            let (worker_send, worker_receive) = mpsc::channel();
+            let result_send_worker = result_send.clone();
+            let t = thread::spawn(move || worker(id, worker_receive, result_send_worker));
+            (worker_send, t)
         })
         .collect();
 
 
     loop {
-        let mut plata_semana = iniciar_semana(&mut plata, &inversores);
+        let mut signal_epoch = start_epoch(&mut signal, &workers);
 
-        let mut devolvieron = HashSet::new();
+        let mut results = HashSet::new();
 
-        while(devolvieron.len() < (INVERSORES as usize)) {
-            let (who, how_much) = devolucion_receive.recv().unwrap();
-            println!("[Banquero] recibí de {} el monto {}", who, how_much);
-            if !devolvieron.contains(&who) {
-                devolvieron.insert(who);
-                plata_semana += how_much;
+        while(results.len() < (WORKERS as usize)) {
+            let (who, result) = result_receive.recv().unwrap();
+            println!("[COORDINADOR] recibí de {} señal {}", who, result);
+            if !results.contains(&who) {
+                results.insert(who);
+                signal_epoch += result;
             }
         }
 
-        println!("[Banquero] final de semana {}", plata_semana);
-        plata = plata_semana
+        println!("[COORDINADOR] señal final {}", signal_epoch);
+        signal = signal_epoch
     }
 
-    let _:Vec<()> = inversores.into_iter()
+    let _:Vec<()> = workers.into_iter()
         .flat_map(|(_,h)| h.join())
         .collect();
 }
 
-fn iniciar_semana(plata: &mut f64, inversores: &Vec<(Sender<f64>, JoinHandle<()>)>) -> f64 {
-    let prestamo = *plata / (INVERSORES as f64);
-    for (inversor, _) in inversores {
-        inversor.send(prestamo).unwrap();
+fn start_epoch(signal: &mut f64, workers: &Vec<(Sender<f64>, JoinHandle<()>)>) -> f64 {
+    let signal_worker = *signal / (WORKERS as f64);
+    for (worker, _) in workers {
+        worker.send(signal_worker).unwrap();
     }
 
-    let mut plata_semana = 0.0;
-    plata_semana
+    let mut signal_epoch = 0.0;
+    signal_epoch
 }
 
-fn inversor(id: i32, prestamo: Receiver<f64>, devolucion: Sender<(i32, f64)>) {
+fn worker(id: i32, signal_source: Receiver<f64>, result: Sender<(i32, f64)>) {
     loop {
-        let plata_inicial = prestamo.recv().unwrap();
-        println!("[Inversor {}] me dan {}", id, plata_inicial);
+        let signal = signal_source.recv().unwrap();
+        println!("[WORKER {}] señal {}", id, signal);
         thread::sleep(Duration::from_secs(2));
-        let resultado = plata_inicial * thread_rng().gen_range(0.5, 1.5);
-        println!("[Inversor {}] devuelvo {}", id, resultado);
-        devolucion.send((id, resultado));
+        let resultado = signal * thread_rng().gen_range(0., 1.);
+        println!("[WORKER {}] resultado {}", id, resultado);
+        result.send((id, resultado));
     }
 }
