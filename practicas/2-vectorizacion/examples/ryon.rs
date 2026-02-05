@@ -32,7 +32,7 @@ fn main() {
     rayon::scope(|s| {
 
         for y in 0..height {
-            //s.spawn(move |t| {
+            s.spawn(move |t| {
                 for x in 0..width {
                     let pixel = input_image.get_pixel(x, y);
                     //t.spawn(move |_| {
@@ -43,9 +43,8 @@ fn main() {
                         }
                     //})
                 }
-            //})
+            })
         }
-
     });
 
     println!("{:?}", start.elapsed());
