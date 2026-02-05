@@ -8,18 +8,19 @@ impl NumeroImaginario {
 
 trait MagnitudVectorial {
     fn norma(&self) -> f64;
+    fn max(&self, other: &MagnitudVectorial) -> f64 {
+        self.norma().max(other.norma())
+    }
 }
 
 impl MagnitudVectorial for NumeroImaginario {
     fn norma(&self) -> f64 {
         self.modulo()
     }
+
 }
 
-fn max(v1:&MagnitudVectorial, v2:&MagnitudVectorial) -> f64 {
-    v1.norma().max(v2.norma())
-}
 
 fn main() {
-    println!("{}", max(&NumeroImaginario(3.0, 4.0), &NumeroImaginario(4.0, 5.0)));
+    println!("{}", NumeroImaginario(3.0, 4.0).max(&NumeroImaginario(4.0, 5.0)));
 }

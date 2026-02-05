@@ -1,12 +1,6 @@
-use std::collections::HashMap;
-use std::time::Duration;
-
-use mockall_double::double;
 use crate::sync::{Arc, Mutex, thread};
 
 mod sync {
-    use std::time::Duration;
-
     #[cfg(not(loom))]
     pub(crate) use std::sync::{Arc, Mutex};
 
@@ -18,28 +12,6 @@ mod sync {
 
     #[cfg(loom)]
     pub(crate) use loom::thread;
-    use rand::{Rng, thread_rng};
-    use rand::distributions::uniform::SampleUniform;
-
-    #[cfg(not(loom))]
-    pub(crate) fn sleep(d:Duration) {
-        thread::sleep(d);
-    }
-
-    #[cfg(loom)]
-    pub(crate) fn sleep(d:Duration) {
-        loom::thread::yield_now();
-    }
-
-    #[cfg(not(loom))]
-    pub(crate) fn rand<T: SampleUniform>(low:T, high:T) -> T {
-        thread_rng().gen_range(low, high)
-    }
-
-    #[cfg(loom)]
-    pub(crate) fn rand<T>(low:T, high:T) -> T {
-        low
-    }
 }
 
 fn play(contenders_count:i32) -> i32 {
@@ -50,7 +22,6 @@ fn play(contenders_count:i32) -> i32 {
         .map(|id| {
             let winner_local = winner.clone();
             sync::thread::spawn(move || {
-                sync::sleep(Duration::from_millis(sync::rand(500, 2000)));
                 let mut winner = winner_local.lock().unwrap();
                 if *winner == None {
                     *winner = Some(id)

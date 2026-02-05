@@ -54,6 +54,7 @@ impl DistMutex {
 
     fn receiver(&mut self) {
         if self.id == 0 {
+            thread::sleep(Duration::from_millis(1000));
             self.socket.send_to("TOKEN".as_bytes(), id_to_addr(0)).unwrap();
         }
         loop {

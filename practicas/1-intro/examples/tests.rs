@@ -20,7 +20,7 @@ mod tests {
 
     #[test]
     fn it_adds_i64s() {
-        assert_eq!(5, add(3_i64, 2));
+        assert_eq!(2, add(3_i64, 2));
     }
 
     #[test]

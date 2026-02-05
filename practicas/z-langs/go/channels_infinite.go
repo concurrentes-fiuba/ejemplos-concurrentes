@@ -5,16 +5,17 @@ import (
 )
 
 func main() {
-	var channel = make(chan int)
+	var channel = make(chan int, 10)
 	var done = make(chan bool)
 	go infiniteConsumer(channel, done)
-	for i:= 0; i< 10; i++ {
+	for i := 0; i < 10; i++ {
+		fmt.Println("Produzco", i)
 		channel <- i
 	}
 	fmt.Println("Cierro el channel")
- 	close(channel)
+	close(channel)
 	fmt.Println("Espero terminar")
-	<- done
+	<-done
 }
 
 func infiniteConsumer(channel chan int, done chan bool) {

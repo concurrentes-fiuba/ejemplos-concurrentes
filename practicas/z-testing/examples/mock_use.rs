@@ -39,12 +39,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_should_sleep() {
+    fn test_should_run_the_proccess_twice() {
         let ctx = Process::run_context();
         ctx.expect()
             .times(2)
             .returning(|x| {
-                println!("sleeping");
+                println!("sleeping with value {}", x);
                 thread::yield_now();
                 x
             });

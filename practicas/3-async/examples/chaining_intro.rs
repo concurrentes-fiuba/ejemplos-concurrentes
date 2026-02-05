@@ -16,7 +16,9 @@ async fn world() -> String {
 }
 
 async fn async_main() -> String {
-    hello().await + world().await.as_str()
+    let hello1 = hello();
+    let world1 = world();
+    hello1.await + world1.await.as_str()
 }
 
 fn main() {

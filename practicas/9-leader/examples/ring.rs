@@ -94,6 +94,9 @@ impl LeaderElection {
         while !*self.stop.0.lock().unwrap() {
             let mut buf = [0; 1 + size_of::<usize>() + (TEAM_MEMBERS+1) * size_of::<usize>()];
             let (size, from) = self.socket.recv_from(&mut buf).unwrap();
+            if *self.stop.0.lock().unwrap() {
+                break;
+            }
             let (msg_type, mut ids) = self.parse_message(&buf);
 
             match msg_type {

@@ -17,6 +17,7 @@ func main() {
 	}
 
 	for i := 0; i < 200; i++ {
+		fmt.Println("producing ", i)
 		channel <- i
 	}
 

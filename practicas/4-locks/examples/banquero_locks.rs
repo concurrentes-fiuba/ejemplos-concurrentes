@@ -19,7 +19,7 @@ const INVERSORES: u32 = 5;
 const SALDO_INICIAL: f64 = 100000.0;
 
 fn main() {
-    let cuenta = Arc::new(RwLock::new(SALDO_INICIAL));
+    let cuenta = Arc::new(RwLock::new((SALDO_INICIAL, INVERSORES)));
 
     let inversores: Vec<JoinHandle<()>> = (0..INVERSORES)
         .map(|id| {
@@ -28,23 +28,31 @@ fn main() {
         })
         .collect();
 
-    inversores.into_iter()
-        .flat_map(|x| x.join())
-        .for_each(drop)
-
+    loop {
+        if let Ok(mut saldo) = cuenta.write() {
+            if (*saldo).1 == INVERSORES {
+                println!("[HIJOS] tenemos plata! {}", (*saldo).0);
+                thread::sleep(Duration::from_millis(100));
+                (*saldo).0 *= 0.8;
+            }
+        }
+    }
 }
 
-fn inversor(id:u32, inicial:f64, cuenta:Arc<RwLock<f64>>) {
+fn inversor(id:u32, inicial:f64, cuenta:Arc<RwLock<(f64, u32)>>) {
     let mut capital = inicial;
-    while capital > 5.0 {
+    loop {
         println!("[INVERSOR {}] inicio semana {}", id, capital);
         if let Ok(mut saldo) = cuenta.write() {
-            *saldo -= capital;
+            (*saldo).0 -= capital;
+            (*saldo).1 -= 1;
         }
-        thread::sleep(Duration::from_millis(1000));
-        let resultado = capital * thread_rng().gen_range(0.9, 1.1);
+        let rand = thread_rng().gen_range(0.9, 1.1);
+        thread::sleep(Duration::from_millis((2000.0 * rand) as u64));
+        let resultado = capital * rand;
         if let Ok(mut money_guard) = cuenta.write() {
-            *money_guard += resultado;
+            (*money_guard).0 += resultado;
+            (*money_guard).1 += 1;
         }
         println!("[INVERSOR {}] resultado {}", id, resultado);
         if (resultado > capital) {

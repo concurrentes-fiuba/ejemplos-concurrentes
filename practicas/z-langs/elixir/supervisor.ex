@@ -23,6 +23,7 @@ defmodule Greeter do
   end
 
   def handle_cast({:save, content}, _acc) when content == "goodbye" do
+    IO.puts("pum!")
     raise "goodbye"
   end
 

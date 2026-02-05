@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use async_std::task;
 use futures::join;
@@ -23,5 +23,7 @@ async fn async_main() -> String {
 }
 
 fn main() {
-    println!("{}", task::block_on(async_main()))
+    let start = SystemTime::now();
+    println!("{}", task::block_on(async_main()));
+    println!("{:?}", SystemTime::now().duration_since(start))
 }

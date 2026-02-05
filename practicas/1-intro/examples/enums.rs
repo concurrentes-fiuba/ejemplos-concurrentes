@@ -19,7 +19,7 @@ enum Message {
 fn print_message(m:Message) {
     match m {
         Message::Fire => println!("Fire"),
-        Message::Move{ x:_, y} if y > 10 => println!("Corre hacia arriba"),
+        Message::Move{ x, y} if y > 10 => println!("Corre hacia arriba"),
         Message::Move{ x, y} => println!("Se mueve hacia {}, {}", x, y),
         Message::Say(msg) => println!("Dice: {}", msg),
     };

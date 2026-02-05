@@ -12,11 +12,11 @@ fn envejecer_ref(p:&mut Persona) {
 
 fn envejecer(mut p:Persona) {
     p.edad += 20;
-    println!("{:?}", p)
+    println!("{:?}", p);
 }
 
 fn main() {
-    let mut ariel = Persona { edad: 37 };
+    let mut ariel = Persona { edad: 41 };
     println!("{:?}", ariel);
     //envejecer(ariel);
     //envejecer_ref(&mut ariel);
