@@ -1,3 +1,4 @@
+use std::thread;
 use std::time::{Duration, SystemTime};
 
 use async_std::task;
@@ -6,13 +7,14 @@ use futures::join;
 async fn hello() -> String {
     println!("before hello");
     task::sleep(Duration::from_secs(2)).await;
+    // thread::sleep(Duration::from_secs(2));
     println!("after hello");
     String::from("Hello")
 }
 
 async fn world() -> String {
     println!("before world");
-    task::sleep(Duration::from_secs(1)).await;
+    // task::sleep(Duration::from_secs(1)).await;
     println!("after world");
     String::from(" World!")
 }
