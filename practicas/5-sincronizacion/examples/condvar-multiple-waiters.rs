@@ -1,3 +1,5 @@
+extern crate rand;
+
 use std::sync::{Arc, Mutex, Condvar};
 use std::thread;
 use std::time::Duration;
@@ -7,50 +9,54 @@ fn main() {
 
     const N:i32 = 5;
 
-    let pair = Arc::new((Mutex::new(true), Condvar::new()));
+    let pair = Arc::new((Mutex::new(Vec::new()), Condvar::new()));
 
     let pair_clone = pair.clone();
-    let awaited = thread::spawn(move || {
+    let producer = thread::spawn(move || {
+        let mut produced:i32 = 0;
         loop {
             let (lock, cvar) = &*pair_clone;
 
-            println!("[awaited] doing expensive computation");
+            println!("[PRODUCER] doing expensive computation");
+            // jugar con los waits
             thread::sleep(Duration::from_millis(1000));
-            println!("[awaited] done");
-            let mut pending = lock.lock().unwrap();
-            println!("[awaited] got lock");
-            *pending = false;
-            println!("[awaited] notifying");
+            produced+=1;
+            println!("[PRODUCER] done");
+            let mut buffer = lock.lock().unwrap();
+            println!("[PRODUCER] got lock");
+            buffer.push(produced);
+            println!("[PRODUCER] notifying");
 
             // play with notify_one
             cvar.notify_all();
         }
     });
 
-    let waiters:Vec<JoinHandle<()>> = (1..N).map(|i| {
+    let consumers:Vec<JoinHandle<()>> = (1..N).map(|i| {
         let pair_clone_waiter = pair.clone();
         thread::spawn(move || {
             loop {
                 let (lock, cvar) = &*pair_clone_waiter;
 
-                let mut _guard = cvar.wait_while(lock.lock().unwrap(), |pending| {
-                    println!("[waiter {}] checking condition {}", i, *pending);
-                    *pending
-                }).unwrap();
+                let to_consume = {
+                    let mut _guard = cvar.wait_while(lock.lock().unwrap(), |buffer| {
+                        println!("[CONSUMER {}] checking condition {}", i, buffer.len());
+                        buffer.is_empty()
+                    }).unwrap();
+                    _guard.pop().unwrap()
+                };
 
-                println!("[waiter {}] woke up", i);
-
+                println!("[CONSUMER {}] woke up - consuming {}", i, to_consume);
                 thread::sleep(Duration::from_millis(1000));
-                (*_guard) = true;
+                println!("[CONSUMER {}] done", i);
 
-                println!("[waiter {}] done", i);
             }
         })
     }).collect();
 
-    let _:Vec<()> = waiters.into_iter()
+    let _:Vec<()> = consumers.into_iter()
         .flat_map(|x| x.join())
         .collect();
 
-    awaited.join().unwrap();
+    producer.join().unwrap();
 }

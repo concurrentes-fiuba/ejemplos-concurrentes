@@ -17,7 +17,7 @@ fn main() {
     let barber_ready = Arc::new(Semaphore::new(0));
     let haircut_done = Arc::new(Semaphore::new(0));
     let current_customer = Arc::new(Mutex::new(-1));
-    let current_customer_set = Arc::new(Barrier::new(2));
+    let current_customer_set = Arc::new(Semaphore::new(0));
 
     let customer_waiting_barber = customer_waiting.clone();
     let barber_ready_barber = barber_ready.clone();
@@ -31,7 +31,7 @@ fn main() {
 
         barber_ready_barber.release();
 
-        current_customer_set_barber.wait();
+        current_customer_set_barber.acquire();
         println!("[Barbero] Cortando pelo a {}", current_customer_barber.lock().unwrap());
 
 
@@ -44,6 +44,7 @@ fn main() {
         println!("[Barbero] Terminé");
     });
 
+    let customer_id = Arc::new(Mutex::new(1));
     let customers: Vec<JoinHandle<()>> = (0..(N+1))
         .map(|_| {
             let barber_ready_customer = barber_ready.clone();
@@ -51,10 +52,16 @@ fn main() {
             let haircut_done_customer = haircut_done.clone();
             let current_customer_id_customer = current_customer.clone();
             let current_customer_set_customer = current_customer_set.clone();
+            let customer_id_customer = customer_id.clone();
+
             thread::spawn(move || loop {
                 thread::sleep(Duration::from_secs(thread_rng().gen_range(2, 10)));
 
-                let me = rand::thread_rng().gen();
+                let me = { 
+                    let mut current = customer_id_customer.lock().unwrap();
+                    *current += 1;
+                    *current
+                };
 
                 println!("[Cliente {}] Entro a la barberia", me);
                 customer_waiting_customer.release();
@@ -65,7 +72,7 @@ fn main() {
                 println!("[Cliente {}] Me siento en la silla del barbero", me);
                 *current_customer_id_customer.lock().unwrap() = me;
 
-                current_customer_set_customer.wait();
+                current_customer_set_customer.release();
 
                 println!("[Cliente {}] Esperando a que me termine de cortar", me);
                 haircut_done_customer.acquire();
