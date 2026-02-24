@@ -6,3 +6,6 @@ edition = "2018"
 [dependencies]
 rayon = "1.5.1"
 image = "0.24.7"
+async-std = "1.9.0"
+wgpu = "26.0.1"
+bytemuck = "1.25.0"
